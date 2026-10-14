@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Analisis PBD - SEKOLAH MENENGAH KEBANGSAAN PARIT BETAK</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .school-logo-box { display:flex; align-items:center; justify-content:center; background:#fff; border-radius:0.75rem; padding:0.5rem; overflow:visible; }
+        .school-logo-img { width:100%; height:100%; object-fit:contain; display:block; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        #loader, #modal { transition: opacity 0.3s; }
+        .hidden-el { display: none !important; }
+        @media print {
+            @page { size: A4; margin: 12mm; }
+            body { background: white; margin: 0; padding: 0; }
+            .no-print { display: none !important; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid #000; padding: 8px; }
+            th { background-color: #f3f4f6 !important; -webkit-print-color-adjust: exact; color: #000 !important; }
+            thead, thead *, th * { color: #000 !important; }
+            .page-break { page-break-after: always; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 h-screen overflow-y-auto">
+    <header class="bg-slate-900 text-white shadow-md">
+        <div class="container mx-auto px-4 py-4 max-w-7xl flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+                <a href="#" class="school-logo-box h-20 w-20 shadow-sm shrink-0">
+                    <img src="https://iili.io/nXupMyG.md.png" alt="Logo Sekolah" class="school-logo-img" />
+                </a>
+                <div>
+                    <h1 class="text-2xl font-black tracking-tight text-white uppercase drop-shadow-md">Sistem Pentaksiran Bilik Darjah</h1>
+                    <p class="text-slate-300 font-medium tracking-wide">SEKOLAH MENENGAH KEBANGSAAN PARIT BETAK</p>
+                </div>
+            </div>
+            <div class="bg-slate-800 px-4 py-2 rounded-lg border border-slate-700 flex items-center gap-3">
+                <div class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
+                <span class="text-sm font-semibold text-slate-200">Sistem Dalam Talian Aktif</span>
+            </div>
+        </div>
+    </header>
+
+    <nav class="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-40">
+        <div class="container mx-auto px-4 max-w-7xl flex overflow-x-auto hide-scrollbar" id="nav-container"></div>
+    </nav>
+
+    <main class="container mx-auto px-4 py-8 max-w-7xl relative" id="app-container"></main>
+
+    <div id="loader" class="fixed inset-0 bg-slate-50/80 z-[100] flex items-center justify-center backdrop-blur-sm hidden-el">
+        <div class="flex flex-col items-center">
+            <div class="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
+            <p id="loader-text" class="font-bold text-slate-700 animate-pulse">Memuat turun data...</p>
+        </div>
+    </div>
+
+    <div id="modal" class="fixed inset-0 flex items-center justify-center z-[110] bg-slate-900/60 backdrop-blur-sm hidden-el">
+        <div id="modal-content" class="bg-white p-8 rounded-2xl shadow-2xl flex flex-col items-center gap-4 transform transition-all scale-100 max-w-md w-full mx-4 text-center border-t-8 border-blue-500">
+            <div id="modal-icon-container" class="w-24 h-24 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-2 shadow-inner">
+                <i data-lucide="database" class="w-14 h-14 animate-pulse"></i>
+            </div>
+            <div>
+                <h3 id="modal-title" class="text-2xl font-black text-slate-800 mb-2">Sedang Diproses...</h3>
+                <p id="modal-desc" class="text-slate-600 font-medium leading-relaxed text-lg"></p>
+            </div>
+            <button id="modal-close" onclick="closeModal()" class="mt-4 px-6 py-2 bg-slate-600 text-white rounded-lg font-bold hidden-el hover:bg-slate-700">Tutup</button>
+        </div>
+    </div>
+
+    <script>
+        const SHEET_ID = "1R95Kfg6VEDm9d3BvZI27c04pWq0j3hq3Iv0EiRw0PVU";
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbw9bsPxS0D4JI93jBQh84iT-O6ILxF-h6Cfo-J5zaGe2HYkP-X5EzDNtjW9VN-0Fswpng/exec";
+        const CSV_URL_MURID = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQUCZxbjJ02N2u0Ar0aZIx09Cu1-knglBJEg_SxHl-MZD6Wm6eaavRDeoyPb4O0PLoulROfJewmOgfQ/pub?gid=0&single=true&output=csv";
+        const CSV_URL_SUBJEK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQUCZxbjJ02N2u0Ar0aZIx09Cu1-knglBJEg_SxHl-MZD6Wm6eaavRDeoyPb4O0PLoulROfJewmOgfQ/pub?gid=1637816673&single=true&output=csv";
+        const CSV_URL_MARKAH = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQUCZxbjJ02N2u0Ar0aZIx09Cu1-knglBJEg_SxHl-MZD6Wm6eaavRDeoyPb4O0PLoulROfJewmOgfQ/pub?gid=350673851&single=true&output=csv";
+
+        const PERNYATAAN_TP = {
+            1: "Tidak Mencapai Tahap Penguasaan Minimum ( Sangat Terhad )",
+            2: "Tidak Mencapai Tahap Penguasaan Minimum ( Terhad )",
+            3: "Mencapai Tahap Penguasaan Minimum ( Memuaskan )",
+            4: "Mencapai Tahap Penguasaan Baik",
+            5: "Mencapai Tahap Penguasaan Sangat Baik",
+            6: "Mencapai Tahap Penguasaan Cemerlang",
+            "TD": "Murid Tidak Ditaksir"
+        };
+
+        const TABS = [
+            { id: 'input', label: 'Input Markah', icon: 'edit-3' },
+            { id: 'senarai_nama', label: 'Senarai Nama', icon: 'list-filter' },
+            { id: 'analisis_kelas', label: 'Analisis Kelas', icon: 'bar-chart-3' },
+            { id: 'analisis_subjek', label: 'Analisis Subjek', icon: 'book-open' },
+            { id: 'semakan', label: 'Semakan TP', icon: 'user-check' },
+            { id: 'slip', label: 'Jana Slip', icon: 'file-text' },
+            { id: 'status', label: 'Status', icon: 'check-circle' },
+        ];
+
+        let state = {
+            activeTab: 'input',
+            senaraiKelas: [],
+            senaraiMuridMapping: {},
+            senaraiSubjek: [],
+            senaraiPentaksiran: [],
+            savedData: [],
+            markah: {},
+            kelas: '',
+            subjek: '',
+            pentaksiran: '',
+            aliran: '',
+            selectedTp: '',
+            isSaving: false
+        };
+
+        let myChartInstance = null;
+
+        window.onload = async function() {
+            renderNav();
+            await fetchInitialData();
+        };
+
+        function parseCsvLine(row) {
+            return row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(col => col.replace(/["\r\n]/g, '').trim());
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function escapeJs(value) {
+            return String(value ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        }
+
+        async function fetchInitialData() {
+            showLoader("Memuat turun data dari Google Sheets...");
+            try {
+                const resMurid = await fetch(CSV_URL_MURID);
+                const textMurid = await resMurid.text();
+                const rowsMurid = textMurid.split('\n').map(r => r.trim()).filter(Boolean);
+                const kelasSet = new Set();
+                const muridMap = {};
+
+                rowsMurid.slice(1).forEach(row => {
+                    const cols = parseCsvLine(row);
+                    if (cols.length >= 2) {
+                        const k = cols[0];
+                        const nm = cols[1];
+                        if (k && nm) {
+                            kelasSet.add(k);
+                            if (!muridMap[k]) muridMap[k] = [];
+                            muridMap[k].push(nm);
+                        }
+                    }
+                });
+                state.senaraiKelas = Array.from(kelasSet).sort();
+                state.senaraiMuridMapping = muridMap;
+
+                const resSubjek = await fetch(CSV_URL_SUBJEK);
+                const textSubjek = await resSubjek.text();
+                const rowsSubjek = textSubjek.split('\n').map(r => r.trim()).filter(Boolean);
+                const subjekSet = new Set();
+                const pentaksiranSet = new Set();
+
+                rowsSubjek.slice(1).forEach(row => {
+                    const cols = parseCsvLine(row);
+                    if (cols.length >= 2) {
+                        const p = cols[0];
+                        const s = cols[1];
+                        if (p) pentaksiranSet.add(p);
+                        if (s) subjekSet.add(s);
+                    }
+                });
+                state.senaraiPentaksiran = Array.from(pentaksiranSet);
+                state.senaraiSubjek = Array.from(subjekSet).sort();
+
+                const resMarkah = await fetch(CSV_URL_MARKAH);
+                const textMarkah = await resMarkah.text();
+                const rowsMarkah = textMarkah.split('\n').map(r => r.trim()).filter(Boolean);
+                const groupedData = {};
+
+                rowsMarkah.slice(1).forEach(row => {
+                    const cols = parseCsvLine(row);
+                    if (cols.length >= 6) {
+                        const k = cols[1] || '';
+                        const nm = cols[2] || '';
+                        const sub = cols[3] || '';
+                        const pen = cols[4] || '';
+                        let rawTp = (cols[5] || '').toUpperCase();
+                        let tp = rawTp;
+
+                        if (rawTp === 'TD') {
+                            tp = 'TD';
+                        } else {
+                            const num = parseInt(rawTp.replace(/[^0-9]/g, ''), 10);
+                            if (!isNaN(num) && num >= 1 && num <= 6) tp = num;
+                        }
+
+                        if (k && nm && sub && pen && tp) {
+                            const key = `${k}|${sub}|${pen}`;
+                            if (!groupedData[key]) groupedData[key] = { kelas: k, subjek: sub, pentaksiran: pen, records: {} };
+                            groupedData[key].records[nm] = tp;
+                        }
+                    }
+                });
+                state.savedData = Object.values(groupedData);
+            } catch (err) {
+                console.error("Ralat memuat turun:", err);
+                showModal("Ralat", "Gagal memuat turun data. Sila semak sambungan internet anda.", "error");
+            }
+            hideLoader();
+            renderApp();
+        }
+
+        function setState(key, value) {
+            state[key] = value;
+            if (['kelas', 'subjek', 'pentaksiran'].includes(key) && state.activeTab === 'input') updateMarkahFromSavedData();
+            renderApp();
+        }
+
+        function updateMarkahFromSavedData() {
+            const existing = state.savedData.find(d => d.kelas === state.kelas && d.subjek === state.subjek && d.pentaksiran === state.pentaksiran);
+            state.markah = existing?.records ? JSON.parse(JSON.stringify(existing.records)) : {};
+        }
+
+        function setMarkah(nama, tp) {
+            state.markah[nama] = tp;
+            renderApp();
+        }
+
+        function changeTab(tabId) {
+            state.activeTab = tabId;
+            if (tabId !== 'input') updateMarkahFromSavedData();
+            renderNav();
+            renderApp();
+        }
+
+        function showLoader(text) {
+            document.getElementById('loader-text').innerText = text;
+            document.getElementById('loader').classList.remove('hidden-el');
+        }
+
+        function hideLoader() {
+            document.getElementById('loader').classList.add('hidden-el');
+        }
+
+        function showModal(title, desc, type) {
+            const modal = document.getElementById('modal');
+            const mContent = document.getElementById('modal-content');
+            const mIcon = document.getElementById('modal-icon-container');
+            const mTitle = document.getElementById('modal-title');
+            const mDesc = document.getElementById('modal-desc');
+            const mBtn = document.getElementById('modal-close');
+
+            mTitle.innerText = title;
+            mDesc.innerText = desc;
+            mContent.className = "bg-white p-8 rounded-2xl shadow-2xl flex flex-col items-center gap-4 transform transition-all scale-100 max-w-md w-full mx-4 text-center border-t-8";
+
+            let iconHtml = '';
+            if (type === 'success') {
+                mContent.classList.add('border-emerald-500');
+                mIcon.className = "w-24 h-24 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-2 shadow-inner";
+                iconHtml = '<i data-lucide="check-circle" class="w-14 h-14"></i>';
+                mBtn.classList.add('hidden-el');
+                setTimeout(closeModal, 3000);
+            } else if (type === 'error') {
+                mContent.classList.add('border-rose-500');
+                mIcon.className = "w-24 h-24 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mb-2 shadow-inner";
+                iconHtml = '<i data-lucide="x-circle" class="w-14 h-14"></i>';
+                mBtn.className = "mt-4 px-6 py-2 bg-rose-600 text-white rounded-lg font-bold hover:bg-rose-700";
+                mBtn.classList.remove('hidden-el');
+            } else {
+                mContent.classList.add('border-blue-500');
+                mIcon.className = "w-24 h-24 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-2 shadow-inner";
+                iconHtml = '<i data-lucide="database" class="w-14 h-14 animate-pulse"></i>';
+                mBtn.classList.add('hidden-el');
+            }
+
+            mIcon.innerHTML = iconHtml;
+            modal.classList.remove('hidden-el');
+            lucide.createIcons();
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.add('hidden-el');
+        }
+
+        async function handleSave() {
+            if (!state.kelas || !state.subjek || !state.pentaksiran) {
+                alert("Sila pilih Kelas, Subjek dan Pentaksiran terlebih dahulu.");
+                return;
+            }
+
+            state.isSaving = true;
+            renderApp();
+            showModal("Menyimpan...", "Sila tunggu sebentar. Data sedang dihantar dan dikemas kini ke dalam sistem pangkalan data.", "info");
+
+            try {
+                const params = new URLSearchParams();
+                params.append('action', 'saveData');
+                params.append('kelas', state.kelas);
+                params.append('subjek', state.subjek);
+                params.append('pentaksiran', state.pentaksiran);
+                params.append('records', JSON.stringify(state.markah));
+
+                const response = await fetch(GAS_URL, {
+                    method: 'POST',
+                    body: params,
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    mode: 'no-cors'
+                });
+
+                if (response.type === 'opaque' || response.ok) {
+                    const existingIndex = state.savedData.findIndex(d => d.kelas === state.kelas && d.subjek === state.subjek && d.pentaksiran === state.pentaksiran);
+                    const recordEntry = {
+                        id: Date.now(),
+                        kelas: state.kelas,
+                        subjek: state.subjek,
+                        pentaksiran: state.pentaksiran,
+                        records: JSON.parse(JSON.stringify(state.markah)),
+                        updatedAt: new Date().toISOString()
+                    };
+
+                    if (existingIndex >= 0) state.savedData[existingIndex] = recordEntry;
+                    else state.savedData.push(recordEntry);
+                    showModal("Berjaya Disimpan!", "Markah Tahap Penguasaan (TP) murid telah berjaya direkodkan.", "success");
+                } else {
+                    throw new Error("Ralat pelayan");
+                }
+            } catch (error) {
+                console.error(error);
+                showModal("Ralat", "Gagal menyimpan rekod. Pastikan Apps Script telah di-deploy dengan betul.", "error");
+            }
+            state.isSaving = false;
+            renderApp();
+        }
+
+        async function handleDeleteAllSubjects(nama, kelas, pentaksiran) {
+            if (!confirm(`Padam SEMUA rekod mata pelajaran bagi ${nama}?`)) return;
+            showModal("Memadam...", "Sila tunggu...", "info");
+            const recordsForClass = state.savedData.filter(d => d.kelas === kelas && d.pentaksiran === pentaksiran);
+            for (const record of recordsForClass) {
+                if (record.records[nama]) {
+                    const updatedRecords = { ...record.records };
+                    delete updatedRecords[nama];
+                    const params = new URLSearchParams();
+                    params.append('action', 'saveData');
+                    params.append('kelas', kelas);
+                    params.append('subjek', record.subjek);
+                    params.append('pentaksiran', pentaksiran);
+                    params.append('records', JSON.stringify(updatedRecords));
+                    await fetch(GAS_URL, { method: 'POST', body: params, headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, mode: 'no-cors' });
+                    record.records = updatedRecords;
+                }
+            }
+            showModal("Berjaya", "Rekod dipadam.", "success");
+            renderApp();
+        }
+
+        function printReport() {
+            const printElement = document.querySelector('.print-content');
+            if (!printElement) return;
+            const cloneElement = printElement.cloneNode(true);
+            const originalCanvases = printElement.querySelectorAll('canvas');
+            const clonedCanvases = cloneElement.querySelectorAll('canvas');
+
+            for (let i = 0; i < originalCanvases.length; i++) {
+                const img = document.createElement('img');
+                img.src = originalCanvases[i].toDataURL('image/png');
+                img.style.maxWidth = '100%';
+                img.style.height = 'auto';
+                img.style.display = 'block';
+                img.style.margin = '0 auto';
+                clonedCanvases[i].parentNode.replaceChild(img, clonedCanvases[i]);
+            }
+
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+            <html>
+                <head>
+                    <title>Sistem Analisis PBD - SEKOLAH MENENGAH KEBANGSAAN PARIT BETAK</title>
+                    <script src="https://cdn.tailwindcss.com"><\/script>
+                    <style>
+                        @page { size: A4; margin: 12mm; }
+                        body { font-family: sans-serif; background: white; margin: 0; padding: 0; }
+                        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                        th, td { border: 1px solid #000; padding: 8px; text-align: left; }
+                        th { background-color: #f3f4f6 !important; color: #000 !important; -webkit-print-color-adjust: exact; }
+                        thead, thead *, th * { color: #000 !important; }
+                        .page-break { page-break-after: always; }
+                        .no-print { display: none !important; }
+                        h2, h3 { color: #000; }
+                        img { max-width: 100%; height: auto; }
+                    </style>
+                </head>
+                <body>
+                    ${cloneElement.innerHTML}
+                    <script>setTimeout(() => { window.print(); window.close(); }, 1000);<\/script>
+                </body>
+            </html>`);
+            printWindow.document.close();
+        }
+
+        function renderNav() {
+            const navHtml = TABS.map(tab => `
+                <button onclick="changeTab('${tab.id}')"
+                    class="flex items-center gap-2 px-5 py-4 font-semibold text-sm whitespace-nowrap border-b-2 transition-colors ${state.activeTab === tab.id ? 'border-indigo-600 text-indigo-700 bg-indigo-50/50' : 'border-transparent text-slate-600 hover:text-indigo-600 hover:bg-slate-50'}">
+                    <i data-lucide="${tab.icon}" class="w-5 h-5"></i> ${tab.label}
+                </button>
+            `).join('');
+            document.getElementById('nav-container').innerHTML = navHtml;
+            lucide.createIcons();
+        }
+
+        function renderApp() {
+            const container = document.getElementById('app-container');
+            if (myChartInstance) {
+                myChartInstance.destroy();
+                myChartInstance = null;
+            }
+
+            let html = '';
+            if (state.activeTab === 'input') html = getHTMLInputTab();
+            else if (state.activeTab === 'senarai_nama') html = getHTMLSenaraiNama();
+            else if (state.activeTab === 'analisis_kelas') html = getHTMLAnalisisKelas();
+            else if (state.activeTab === 'analisis_subjek') html = getHTMLAnalisisSubjek();
+            else if (state.activeTab === 'semakan') html = getHTMLSemakan();
+            else if (state.activeTab === 'slip') html = getHTMLSlip();
+            else if (state.activeTab === 'status') html = getHTMLStatus();
+
+            container.innerHTML = html;
+            lucide.createIcons();
+
+            if (state.activeTab === 'analisis_kelas') renderChartKelas();
+            if (state.activeTab === 'analisis_subjek') renderChartSubjek();
+        }
+
+        function getSelectOptions(list, selectedValue, placeholder) {
+            let options = `<option value="">-- ${placeholder} --</option>`;
+            list.forEach(item => {
+                options += `<option value="${escapeHtml(item)}" ${selectedValue === item ? 'selected' : ''}>${escapeHtml(item)}</option>`;
+            });
+            return options;
+        }
+
+        function getTpOptions(selectedValue) {
+            const tpList = [1, 2, 3, 4, 5, 6, 'TD'];
+            let options = '<option value="">-- Semua TP --</option>';
+            tpList.forEach(tp => {
+                options += `<option value="${tp}" ${String(selectedValue) === String(tp) ? 'selected' : ''}>${tp === 'TD' ? 'TD - Tidak Ditaksir' : `TP ${tp}`}</option>`;
+            });
+            return options;
+        }
+
+        function getAliranOptions(selectedValue) {
+            return [1, 2, 3, 4, 5, 6].map(a => `<option value="${a}" ${String(selectedValue) === String(a) ? 'selected' : ''}>Tahun / Tingkatan ${a}</option>`).join('');
+        }
+
+        function getFilteredRecordsByAliranSubjekPentaksiran() {
+            return state.savedData.filter(d =>
+                d.subjek === state.subjek &&
+                d.pentaksiran === state.pentaksiran &&
+                (!state.aliran || d.kelas.match(new RegExp(`^${state.aliran}`, 'i')) || d.kelas.includes(state.aliran))
+            );
+        }
+
+        function getHTMLInputTab() {
+            const muridList = state.senaraiMuridMapping[state.kelas] || [];
+            let content = `
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <h2 class="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+                    <i data-lucide="database" class="text-indigo-600 w-6 h-6"></i> Input Markah Bilik Darjah
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 bg-slate-50 p-4 rounded-lg border border-slate-100">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Pilih Kelas</label>
+                        <select onchange="setState('kelas', this.value)" class="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white">
+                            ${getSelectOptions(state.senaraiKelas, state.kelas, 'Sila Pilih')}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Pilih Subjek</label>
+                        <select onchange="setState('subjek', this.value)" class="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white">
+                            ${getSelectOptions(state.senaraiSubjek, state.subjek, 'Sila Pilih')}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Pilih Pentaksiran</label>
+                        <select onchange="setState('pentaksiran', this.value)" class="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white">
+                            ${getSelectOptions(state.senaraiPentaksiran, state.pentaksiran, 'Sila Pilih')}
+                        </select>
+                    </div>
+                </div>`;
+
+            if (state.kelas && state.subjek && state.pentaksiran) {
+                const tableRows = muridList.map((nama, idx) => {
+                    const tpButtons = [1, 2, 3, 4, 5, 6].map(tp => `
+                        <button onclick="setMarkah('${escapeJs(nama)}', ${tp})" class="w-9 h-9 rounded-md font-bold text-sm transition-all duration-200 ${state.markah[nama] === tp ? 'bg-indigo-600 text-white shadow-md transform scale-105' : 'bg-white text-slate-600 border border-slate-300 hover:bg-indigo-50 hover:border-indigo-300'}">${tp}</button>
+                    `).join('');
+                    const tdButton = `<button onclick="setMarkah('${escapeJs(nama)}', 'TD')" class="px-3 h-9 rounded-md font-bold text-sm transition-all duration-200 ml-2 ${state.markah[nama] === 'TD' ? 'bg-rose-500 text-white shadow-md transform scale-105' : 'bg-white text-slate-600 border border-slate-300 hover:bg-rose-50 hover:border-rose-300'}">TD</button>`;
+                    return `
+                    <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                        <td class="px-4 py-3 text-center">${idx + 1}</td>
+                        <td class="px-4 py-3 font-medium text-slate-800">${escapeHtml(nama)}</td>
+                        <td class="px-4 py-3"><div class="flex flex-wrap justify-center gap-1.5">${tpButtons}${tdButton}</div></td>
+                    </tr>`;
+                }).join('');
+
+                content += `
+                <div class="border border-slate-200 rounded-lg overflow-x-auto mb-6">
+                    <table class="w-full text-sm text-left">
+                        <thead class="bg-slate-100 text-slate-700 uppercase">
+                            <tr>
+                                <th class="px-4 py-3 font-semibold w-12 text-center">Bil</th>
+                                <th class="px-4 py-3 font-semibold">Nama Murid</th>
+                                <th class="px-4 py-3 font-semibold text-center">Tahap Penguasaan</th>
+                            </tr>
+                        </thead>
+                        <tbody>${tableRows}</tbody>
+                    </table>
+                </div>
+                <div class="flex justify-end mt-6">
+                    <button onclick="handleSave()" ${state.isSaving ? 'disabled' : ''} class="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white font-bold rounded-lg shadow-md hover:bg-indigo-700 transition-colors ${state.isSaving ? 'opacity-70 cursor-not-allowed' : ''}">
+                        <i data-lucide="save" class="w-5 h-5"></i> ${state.isSaving ? 'Menyimpan...' : 'Simpan Data ke Sistem'}
+                    </button>
+                </div>`;
+            } else {
+                content += `
+                <div class="text-center py-12 bg-slate-50 rounded-lg border border-dashed border-slate-300">
+                    <i data-lucide="search" class="mx-auto h-12 w-12 text-slate-400 mb-3"></i>
+                    <h3 class="text-lg font-medium text-slate-900">Sila buat pilihan di atas</h3>
+                    <p class="text-slate-500">Pilih kelas, subjek, dan pentaksiran untuk mula memasukkan markah.</p>
+                </div>`;
+            }
+            return `${content}</div>`;
+        }
+
+        function getHTMLSenaraiNama() {
+            const records = getFilteredRecordsByAliranSubjekPentaksiran();
+            const selectedTp = state.selectedTp;
+            const rowsData = [];
+
+            records.forEach(record => {
+                Object.entries(record.records || {}).forEach(([nama, tp]) => {
+                    if (!selectedTp || String(tp) === String(selectedTp)) {
+                        rowsData.push({ nama, kelas: record.kelas, tp });
+                    }
+                });
+            });
+
+            rowsData.sort((a, b) => a.kelas.localeCompare(b.kelas, 'ms') || a.nama.localeCompare(b.nama, 'ms'));
+
+            const tpCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, TD: 0 };
+            records.forEach(record => {
+                Object.values(record.records || {}).forEach(tp => {
+                    if (tpCounts[tp] !== undefined) tpCounts[tp] += 1;
+                });
+            });
+
+            const summaryCards = [1, 2, 3, 4, 5, 6, 'TD'].map(tp => `
+                <button onclick="setState('selectedTp', '${tp}')" class="text-left p-4 rounded-lg border transition-colors ${String(selectedTp) === String(tp) ? 'border-indigo-500 bg-indigo-50 shadow-sm' : 'border-slate-200 bg-white hover:border-indigo-300'}">
+                    <div class="text-xs font-black uppercase tracking-wide ${tp === 'TD' ? 'text-rose-600' : 'text-slate-500'}">${tp === 'TD' ? 'TD' : `TP ${tp}`}</div>
+                    <div class="text-2xl font-black text-slate-900 mt-1">${tpCounts[tp]}</div>
+                    <div class="text-xs text-slate-500 mt-1">murid</div>
+                </button>
+            `).join('');
+
+            const rows = rowsData.length > 0 ? rowsData.map((item, idx) => `
+                <tr class="border-b border-slate-100 hover:bg-slate-50">
+                    <td class="px-4 py-3 text-center">${idx + 1}</td>
+                    <td class="px-4 py-3 font-semibold text-slate-800">${escapeHtml(item.nama)}</td>
+                    <td class="px-4 py-3 text-center">${escapeHtml(item.kelas)}</td>
+                    <td class="px-4 py-3 text-center">
+                        <span class="inline-flex items-center justify-center min-w-12 rounded-full px-3 py-1 text-sm font-black ${item.tp === 'TD' ? 'bg-rose-100 text-rose-700' : 'bg-indigo-100 text-indigo-700'}">${item.tp === 'TD' ? 'TD' : `TP ${item.tp}`}</span>
+                    </td>
+                    <td class="px-4 py-3 text-slate-600">${escapeHtml(PERNYATAAN_TP[item.tp] || '-')}</td>
+                </tr>
+            `).join('') : `
+                <tr>
+                    <td colspan="5" class="text-center py-10 text-slate-500">
+                        Tiada murid dijumpai untuk pilihan ini.
+                    </td>
+                </tr>`;
+
+            return `
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                    <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                        <i data-lucide="list-filter" class="text-indigo-600 w-6 h-6"></i> Senarai Nama Mengikut TP
+                    </h2>
+                    <button onclick="printReport()" class="flex items-center justify-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-md hover:bg-slate-700 text-sm font-medium">
+                        <i data-lucide="printer" class="w-4 h-4"></i> Cetak
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 bg-slate-50 p-4 rounded-lg border border-slate-100">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Aliran</label>
+                        <select onchange="setState('aliran', this.value)" class="w-full p-2.5 border border-slate-300 rounded-lg bg-white">
+                            <option value="">-- Semua Aliran --</option>
+                            ${getAliranOptions(state.aliran)}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Pentaksiran</label>
+                        <select onchange="setState('pentaksiran', this.value)" class="w-full p-2.5 border border-slate-300 rounded-lg bg-white">
+                            ${getSelectOptions(state.senaraiPentaksiran, state.pentaksiran, 'Sila Pilih')}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Subjek</label>
+                        <select onchange="setState('subjek', this.value)" class="w-full p-2.5 border border-slate-300 rounded-lg bg-white">
+                            ${getSelectOptions(state.senaraiSubjek, state.subjek, 'Sila Pilih')}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Tahap Penguasaan</label>
+                        <select onchange="setState('selectedTp', this.value)" class="w-full p-2.5 border border-slate-300 rounded-lg bg-white">
+                            ${getTpOptions(state.selectedTp)}
+                        </select>
+                    </div>
+                </div>
+
+                ${state.subjek && state.pentaksiran ? `
+                <div class="grid grid-cols-2 md:grid-cols-7 gap-3 mb-6 no-print">
+                    ${summaryCards}
+                </div>
+                <div class="print-content">
+                    <div class="text-center mb-5">
+                        <h3 class="text-lg font-black uppercase text-slate-900">SENARAI NAMA MURID ${selectedTp ? `- ${selectedTp === 'TD' ? 'TD' : `TP ${selectedTp}`}` : 'MENGIKUT TP'}</h3>
+                        <p class="text-slate-600 font-medium">${escapeHtml(state.subjek)} | ${escapeHtml(state.pentaksiran)}${state.aliran ? ` | ALIRAN ${escapeHtml(state.aliran)}` : ' | SEMUA ALIRAN'}</p>
+                        <p class="text-sm text-slate-500 mt-1">Jumlah murid: ${rowsData.length}</p>
+                    </div>
+                    <div class="overflow-x-auto border border-slate-200 rounded-lg">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-slate-800 text-white">
+                                <tr>
+                                    <th class="px-4 py-3 w-16 text-center">Bil</th>
+                                    <th class="px-4 py-3">Nama Murid</th>
+                                    <th class="px-4 py-3 text-center w-32">Kelas</th>
+                                    <th class="px-4 py-3 text-center w-32">TP</th>
+                                    <th class="px-4 py-3">Pernyataan</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>
+                </div>` : `
+                <div class="text-center py-12 bg-slate-50 rounded-lg border border-dashed border-slate-300">
+                    <i data-lucide="list-filter" class="mx-auto h-12 w-12 text-slate-400 mb-3"></i>
+                    <h3 class="text-lg font-medium text-slate-900">Sila pilih pentaksiran dan subjek</h3>
+                    <p class="text-slate-500">Selepas itu pilih TP untuk melihat senarai nama murid.</p>
+                </div>`}
+            </div>`;
+        }
+
+        function getHTMLAnalisisKelas() {
+            const filteredData = state.savedData.filter(d => d.kelas === state.kelas && d.pentaksiran === state.pentaksiran);
+            window.statsDataKelas = filteredData.map(d => {
+                const tpCount = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, TD: 0 };
+                let totalAssessed = 0;
+                Object.values(d.records).forEach(val => {
+                    if (val) {
+                        tpCount[val] = (tpCount[val] || 0) + 1;
+                        if (val !== 'TD') totalAssessed++;
+                    }
+                });
+                const bmtm = tpCount[1] + tpCount[2];
+                const mtm = tpCount[3] + tpCount[4] + tpCount[5] + tpCount[6];
+                return {
+                    subjek: d.subjek,
+                    totalMurid: Object.keys(d.records).length,
+                    total: totalAssessed,
+                    ...tpCount,
+                    mtm,
+                    mtmPct: totalAssessed > 0 ? ((mtm / totalAssessed) * 100).toFixed(1) : "0.0",
+                    bmtm,
+                    bmtmPct: totalAssessed > 0 ? ((bmtm / totalAssessed) * 100).toFixed(1) : "0.0"
+                };
+            });
+
+            let content = `
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                        <i data-lucide="bar-chart-3" class="text-blue-600 w-6 h-6"></i> Analisis Kelas
+                    </h2>
+                    <button onclick="printReport()" class="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-md hover:bg-slate-700 text-sm font-medium">
+                        <i data-lucide="printer" class="w-4 h-4"></i> Cetak
+                    </button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 bg-slate-50 p-4 rounded-lg">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Pilih Kelas</label>
+                        <select onchange="setState('kelas', this.value)" class="w-full p-2.5 border border-slate-300 rounded-lg">${getSelectOptions(state.senaraiKelas, state.kelas, 'Sila Pilih')}</select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Pilih Pentaksiran</label>
+                        <select onchange="setState('pentaksiran', this.value)" class="w-full p-2.5 border border-slate-300 rounded-lg">${getSelectOptions(state.senaraiPentaksiran, state.pentaksiran, 'Sila Pilih')}</select>
+                    </div>
+                </div>`;
+
+            if (state.kelas && state.pentaksiran && window.statsDataKelas.length > 0) {
+                const rows = window.statsDataKelas.map((s, idx) => `
+                    <tr class="border-b border-slate-200 hover:bg-slate-50">
+                        <td class="px-3 py-2">${idx + 1}</td>
+                        <td class="px-3 py-2 text-left font-semibold">${escapeHtml(s.subjek)}</td>
+                        <td class="px-3 py-2">${s.totalMurid}</td>
+                        <td class="px-3 py-2 text-slate-500 font-bold">${s.TD}</td>
+                        ${[1, 2, 3, 4, 5, 6].map(i => `<td class="px-3 py-2">${s[i]} <br><span class="text-xs text-slate-400">(${s.total > 0 ? ((s[i] / s.total) * 100).toFixed(0) : 0}%)</span></td>`).join('')}
+                        <td class="px-3 py-2 font-bold text-emerald-700 bg-emerald-50">${s.mtm}</td>
+                        <td class="px-3 py-2 font-bold text-emerald-700 bg-emerald-50">${s.mtmPct}%</td>
+                        <td class="px-3 py-2 font-bold text-rose-700 bg-rose-50">${s.bmtm}</td>
+                        <td class="px-3 py-2 font-bold text-rose-700 bg-rose-50">${s.bmtmPct}%</td>
+                    </tr>`).join('');
+
+                content += `
+                <div class="print-content">
+                    <div class="text-center mb-6">
+                        <h3 class="text-lg font-bold">ANALISIS TAHAP PENGUASAAN KELAS ${escapeHtml(state.kelas).toUpperCase()}</h3>
+                        <p class="text-slate-600">${escapeHtml(state.pentaksiran)}</p>
+                    </div>
+                    <div class="overflow-x-auto mb-4 border border-slate-200 rounded-lg">
+                        <table class="w-full text-sm text-center">
+                            <thead class="bg-slate-800 text-white">
+                                <tr>
+                                    <th class="px-3 py-2">Bil</th><th class="px-3 py-2 text-left">Subjek</th><th class="px-3 py-2">Bil Murid</th><th class="px-3 py-2">TD</th>
+                                    <th class="px-3 py-2">TP1</th><th class="px-3 py-2">TP2</th><th class="px-3 py-2">TP3</th><th class="px-3 py-2">TP4</th><th class="px-3 py-2">TP5</th><th class="px-3 py-2">TP6</th>
+                                    <th class="px-3 py-2 bg-emerald-700">MTM</th><th class="px-3 py-2 bg-emerald-700">% MTM</th>
+                                    <th class="px-3 py-2 bg-rose-700">BMTM</th><th class="px-3 py-2 bg-rose-700">% BMTM</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>
+                    <div class="mb-8 text-sm text-slate-600 font-medium bg-slate-100 p-4 rounded-lg">
+                        <p><strong>Nota:</strong></p>
+                        <ul class="list-disc list-inside mt-1">
+                            <li><strong>Menguasai Tahap Minimum (MTM)</strong> = TP 3 + TP 4 + TP 5 + TP 6</li>
+                            <li><strong>Belum Mencapai Tahap Minimum (BMTM)</strong> = TP 1 + TP 2</li>
+                        </ul>
+                    </div>
+                    <div class="h-80 w-full mb-6">
+                        <h4 class="text-center font-bold text-slate-700 mb-4">Graf Taburan Mengikut Kelas (TP 1 - TP 6)</h4>
+                        <canvas id="chartKelas"></canvas>
+                    </div>
+                </div>`;
+            } else if (state.kelas && state.pentaksiran) {
+                content += '<div class="text-center py-8 text-slate-500">Tiada rekod dijumpai.</div>';
+            }
+            return `${content}</div>`;
+        }
+
+        function getHTMLAnalisisSubjek() {
+            const filteredData = getFilteredRecordsByAliranSubjekPentaksiran();
+            window.statsDataSubjek = filteredData.map(d => {
+                const tpCount = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, TD: 0 };
+                let totalAssessed = 0;
+                Object.values(d.records).forEach(val => {
+                    if (val) {
+                        tpCount[val] = (tpCount[val] || 0) + 1;
+                        if (val !== 'TD') totalAssessed++;
+                    }
+                });
+                return { kelas: d.kelas, totalAssessed, ...tpCount };
+            });
+
+            let content = `
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                        <i data-lucide="book-open" class="text-indigo-600 w-6 h-6"></i> Analisis Subjek
+                    </h2>
+                    <button onclick="printReport()" class="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-md hover:bg-slate-700 text-sm font-medium">
+                        <i data-lucide="printer" class="w-4 h-4"></i> Cetak
+                    </button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 bg-slate-50 p-4 rounded-lg">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Pilih Subjek</label>
+                        <select onchange="setState('subjek', this.value)" class="w-full p-2.5 border border-slate-300 rounded-lg">${getSelectOptions(state.senaraiSubjek, state.subjek, 'Sila Pilih')}</select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Pilih Pentaksiran</label>
+                        <select onchange="setState('pentaksiran', this.value)" class="w-full p-2.5 border border-slate-300 rounded-lg">${getSelectOptions(state.senaraiPentaksiran, state.pentaksiran, 'Sila Pilih')}</select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Aliran (Tahun/Tingkatan)</label>
+                        <select onchange="setState('aliran', this.value)" class="w-full p-2.5 border border-slate-300 rounded-lg">
+                            <option value="">-- Semua Aliran --</option>${getAliranOptions(state.aliran)}
+                        </select>
+                    </div>
+                </div>`;
+
+            if (state.subjek && state.pentaksiran && window.statsDataSubjek.length > 0) {
+                const rows = window.statsDataSubjek.map((s, idx) => `
+                    <tr class="border-b border-slate-200 hover:bg-slate-50">
+                        <td class="px-3 py-2">${idx + 1}</td>
+                        <td class="px-3 py-2 text-left font-semibold">${escapeHtml(s.kelas)}</td>
+                        <td class="px-3 py-2 text-slate-500 font-bold">${s.TD}</td>
+                        ${[1, 2, 3, 4, 5, 6].map(i => `<td class="px-3 py-2">${s[i]} <br><span class="text-xs text-slate-400">(${s.totalAssessed > 0 ? ((s[i] / s.totalAssessed) * 100).toFixed(0) : 0}%)</span></td>`).join('')}
+                        <td class="px-3 py-2 font-bold bg-indigo-50 text-indigo-700">${s.totalAssessed}</td>
+                    </tr>`).join('');
+
+                content += `
+                <div class="print-content">
+                    <div class="text-center mb-6">
+                        <h3 class="text-lg font-bold">ANALISIS TAHAP PENGUASAAN SUBJEK ${escapeHtml(state.subjek).toUpperCase()}</h3>
+                        <p class="text-slate-600">${escapeHtml(state.pentaksiran)} ${state.aliran ? `- ALIRAN ${escapeHtml(state.aliran)}` : ''}</p>
+                    </div>
+                    <div class="overflow-x-auto mb-8 border border-slate-200 rounded-lg">
+                        <table class="w-full text-sm text-center">
+                            <thead class="bg-slate-800 text-white">
+                                <tr>
+                                    <th class="px-3 py-2">Bil</th><th class="px-3 py-2 text-left">Kelas</th><th class="px-3 py-2">TD</th>
+                                    <th class="px-3 py-2">TP1</th><th class="px-3 py-2">TP2</th><th class="px-3 py-2">TP3</th><th class="px-3 py-2">TP4</th><th class="px-3 py-2">TP5</th><th class="px-3 py-2">TP6</th>
+                                    <th class="px-3 py-2 bg-indigo-700">Jumlah Dinilai</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>
+                    <div class="h-80 w-full mb-6">
+                        <h4 class="text-center font-bold text-slate-700 mb-4">Taburan Mengikut Kelas (TP 1 - TP 6)</h4>
+                        <canvas id="chartSubjek"></canvas>
+                    </div>
+                </div>`;
+            } else if (state.subjek && state.pentaksiran) {
+                content += '<div class="text-center py-8 text-slate-500">Tiada rekod dijumpai.</div>';
+            }
+            return `${content}</div>`;
+        }
+
+        function renderChartKelas() {
+            const ctx = document.getElementById('chartKelas');
+            if (!ctx) return;
+            const data = window.statsDataKelas;
+            myChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.map(d => d.subjek),
+                    datasets: [
+                        { label: 'TP1', data: data.map(d => d[1]), backgroundColor: '#ef4444' },
+                        { label: 'TP2', data: data.map(d => d[2]), backgroundColor: '#f97316' },
+                        { label: 'TP3', data: data.map(d => d[3]), backgroundColor: '#eab308' },
+                        { label: 'TP4', data: data.map(d => d[4]), backgroundColor: '#84cc16' },
+                        { label: 'TP5', data: data.map(d => d[5]), backgroundColor: '#22c55e' },
+                        { label: 'TP6', data: data.map(d => d[6]), backgroundColor: '#06b6d4' }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, animation: false }
+            });
+        }
+
+        function renderChartSubjek() {
+            const ctx = document.getElementById('chartSubjek');
+            if (!ctx) return;
+            const data = window.statsDataSubjek;
+            myChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.map(d => d.kelas),
+                    datasets: [
+                        { label: 'TP1', data: data.map(d => d[1]), backgroundColor: '#ef4444' },
+                        { label: 'TP2', data: data.map(d => d[2]), backgroundColor: '#f97316' },
+                        { label: 'TP3', data: data.map(d => d[3]), backgroundColor: '#eab308' },
+                        { label: 'TP4', data: data.map(d => d[4]), backgroundColor: '#84cc16' },
+                        { label: 'TP5', data: data.map(d => d[5]), backgroundColor: '#22c55e' },
+                        { label: 'TP6', data: data.map(d => d[6]), backgroundColor: '#06b6d4' }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, animation: false }
+            });
+        }
+
+        function getHTMLSemakan() {
+            const muridList = state.senaraiMuridMapping[state.kelas] || [];
+            const recordsForClass = state.savedData.filter(d => d.kelas === state.kelas && d.pentaksiran === state.pentaksiran);
+            const availableSubjects = Array.from(new Set(recordsForClass.map(d => d.subjek))).sort();
+
+            let content = `
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                        <i data-lucide="user-check" class="text-purple-600 w-6 h-6"></i> Semakan & Pembetulan TP
+                    </h2>
+                    <button onclick="printReport()" class="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-md hover:bg-slate-700 text-sm font-medium">
+                        <i data-lucide="printer" class="w-4 h-4"></i> Cetak
+                    </button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 bg-slate-50 p-4 rounded-lg">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Pilih Kelas</label>
+                        <select onchange="setState('kelas', this.value)" class="w-full p-2.5 border border-slate-300 rounded-lg">${getSelectOptions(state.senaraiKelas, state.kelas, 'Sila Pilih')}</select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Pilih Pentaksiran</label>
+                        <select onchange="setState('pentaksiran', this.value)" class="w-full p-2.5 border border-slate-300 rounded-lg">${getSelectOptions(state.senaraiPentaksiran, state.pentaksiran, 'Sila Pilih')}</select>
+                    </div>
+                </div>`;
+
+            if (state.kelas && state.pentaksiran && availableSubjects.length > 0) {
+                const subHeaders = availableSubjects.map(s => `<th class="px-2 py-1 text-xs bg-slate-700 border-r border-slate-600">${escapeHtml(s)}</th>`).join('');
+                const rows = muridList.map((nama, idx) => {
+                    let hasAnyMark = false;
+                    const subCols = availableSubjects.map(sub => {
+                        const record = recordsForClass.find(r => r.subjek === sub);
+                        const tp = record?.records?.[nama] || '-';
+                        if (tp !== '-') hasAnyMark = true;
+                        return `<td class="px-2 py-2 font-bold ${tp === '-' ? 'text-slate-300' : 'text-slate-700'}">${tp}</td>`;
+                    }).join('');
+                    const deleteBtn = hasAnyMark ? `<button onclick="handleDeleteAllSubjects('${escapeJs(nama)}', '${escapeJs(state.kelas)}', '${escapeJs(state.pentaksiran)}')" class="text-rose-600 hover:bg-rose-50 p-1.5 rounded-md" title="Padam Rekod"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : '';
+                    return `
+                    <tr class="border-b border-slate-200 hover:bg-slate-50">
+                        <td class="px-3 py-2">${idx + 1}</td>
+                        <td class="px-3 py-2 text-left font-medium">${escapeHtml(nama)}</td>
+                        ${subCols}
+                        <td class="px-3 py-2 no-print">${deleteBtn}</td>
+                    </tr>`;
+                }).join('');
+
+                content += `
+                <div class="print-content">
+                    <div class="mb-4 flex items-center gap-2">
+                        <i data-lucide="search" class="w-5 h-5 text-slate-400"></i>
+                        <h3 class="font-bold text-lg text-slate-800 uppercase">SEMAKAN TAHAP PENGUASAAN KELAS ${escapeHtml(state.kelas)} - ${escapeHtml(state.pentaksiran)}</h3>
+                    </div>
+                    <div class="overflow-x-auto border border-slate-200 rounded-lg">
+                        <table class="w-full text-sm text-center">
+                            <thead class="bg-slate-800 text-white">
+                                <tr>
+                                    <th class="px-3 py-2 w-12 border-r border-slate-600" rowspan="2">Bil</th>
+                                    <th class="px-3 py-2 text-left border-r border-slate-600" rowspan="2">Nama Murid</th>
+                                    <th class="px-3 py-2 border-b border-slate-600 border-r border-slate-600" colspan="${availableSubjects.length}">Tahap Penguasaan</th>
+                                    <th class="px-3 py-2 w-24 no-print border-r border-slate-600" rowspan="2">Tindakan</th>
+                                </tr>
+                                <tr>${subHeaders}</tr>
+                            </thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>
+                </div>`;
+            } else if (state.kelas && state.pentaksiran) {
+                content += '<div class="text-center py-8 text-slate-500">Tiada subjek direkodkan lagi.</div>';
+            }
+            return `${content}</div>`;
+        }
+
+        function getHTMLSlip() {
+            const muridList = state.senaraiMuridMapping[state.kelas] || [];
+            const recordsForClass = state.savedData.filter(d => d.kelas === state.kelas && d.pentaksiran === state.pentaksiran);
+
+            function generateUlasan(tps) {
+                if (tps.length === 0) return "Tiada rekod penilaian untuk murid ini.";
+                const hasBMTM = tps.some(tp => tp === 1 || tp === 2);
+                const hasCemerlang = tps.some(tp => tp === 6 || tp === 5);
+                if (hasBMTM && hasCemerlang) return "Menunjukkan potensi yang baik dalam beberapa mata pelajaran, namun memerlukan bimbingan tambahan dalam subjek tertentu. Teruskan usaha!";
+                if (hasBMTM) return "Perlu lebih tumpuan dan usaha yang berterusan. Banyakkan ulang kaji di rumah dan jangan segan bertanya kepada guru.";
+                if (hasCemerlang) return "Syabas! Pencapaian yang amat membanggakan. Teruskan kecemerlangan dan kekalkan sikap positif dalam pembelajaran.";
+                return "Pencapaian yang memuaskan. Teruskan usaha untuk mencapai kejayaan yang lebih baik pada masa akan datang.";
+            }
+
+            let content = `
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                        <i data-lucide="file-text" class="text-amber-600 w-6 h-6"></i> Jana Slip Individu (Keseluruhan Kelas)
+                    </h2>
+                    ${state.kelas && state.pentaksiran ? `
+                    <button onclick="printReport()" class="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold shadow-md">
+                        <i data-lucide="printer" class="w-5 h-5"></i> Cetak Semua Slip
+                    </button>` : ''}
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 bg-slate-50 p-4 rounded-lg">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Pilih Kelas</label>
+                        <select onchange="setState('kelas', this.value)" class="w-full p-2.5 border border-slate-300 rounded-lg">${getSelectOptions(state.senaraiKelas, state.kelas, 'Sila Pilih')}</select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Pilih Pentaksiran</label>
+                        <select onchange="setState('pentaksiran', this.value)" class="w-full p-2.5 border border-slate-300 rounded-lg">${getSelectOptions(state.senaraiPentaksiran, state.pentaksiran, 'Sila Pilih')}</select>
+                    </div>
+                </div>`;
+
+            if (state.kelas && state.pentaksiran && muridList.length > 0) {
+                const slipsHtml = muridList.map((namaMurid, index) => {
+                    const muridSubjects = recordsForClass.filter(r => r.records?.[namaMurid]);
+                    const tps = muridSubjects.map(r => r.records[namaMurid]).filter(tp => typeof tp === 'number');
+                    const ulasan = generateUlasan(tps);
+                    const subjectRows = muridSubjects.length > 0 ? muridSubjects.map((subRec, i) => {
+                        const tpVal = subRec.records[namaMurid];
+                        return `
+                        <tr>
+                            <td class="border border-slate-400 p-3 text-center">${i + 1}</td>
+                            <td class="border border-slate-400 p-3 font-semibold text-slate-800">${escapeHtml(subRec.subjek)}</td>
+                            <td class="border border-slate-400 p-3 text-center font-bold text-lg">${tpVal}</td>
+                            <td class="border border-slate-400 p-3 text-slate-700 italic">${escapeHtml(PERNYATAAN_TP[tpVal] || "Tiada Maklumat")}</td>
+                        </tr>`;
+                    }).join('') : '<tr><td colspan="4" class="border border-slate-400 p-6 text-center text-slate-500">Tiada rekod penilaian dijumpai.</td></tr>';
+
+                    return `
+                    <div class="bg-white p-10 shadow-lg rounded-xl mx-auto w-full max-w-4xl border border-slate-300 ${index < muridList.length - 1 ? 'page-break mb-12' : ''}">
+                        <div class="flex items-center justify-between border-b-2 border-slate-800 pb-6 mb-6">
+                            <img src="https://iili.io/nXupMyG.md.png" alt="Logo" class="h-24 max-w-32 object-contain" />
+                            <div class="text-right">
+                                <h1 class="text-2xl font-black text-slate-900 uppercase">SLIP PENTAKSIRAN BILIK DARJAH</h1>
+                                <h2 class="text-lg font-bold text-slate-700 uppercase">${escapeHtml(state.pentaksiran)}</h2>
+                                <p class="text-slate-500 font-medium mt-1">SEKOLAH MENENGAH KEBANGSAAN PARIT BETAK</p>
+                            </div>
+                        </div>
+                        <table class="w-full text-sm mb-8 border-collapse">
+                            <tbody>
+                                <tr>
+                                    <td class="border border-slate-400 p-2.5 font-bold text-slate-700 w-1/6 bg-slate-100">Nama Murid</td>
+                                    <td class="border border-slate-400 p-2.5 font-semibold text-slate-900 uppercase w-2/6">${escapeHtml(namaMurid)}</td>
+                                    <td class="border border-slate-400 p-2.5 font-bold text-slate-700 w-1/6 bg-slate-100">Kelas</td>
+                                    <td class="border border-slate-400 p-2.5 font-semibold text-slate-900 uppercase w-2/6">${escapeHtml(state.kelas)}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <table class="w-full text-sm mb-8">
+                            <thead class="bg-slate-200 text-slate-800">
+                                <tr>
+                                    <th class="border border-slate-400 p-3 text-center w-12">Bil</th>
+                                    <th class="border border-slate-400 p-3 text-left">Mata Pelajaran</th>
+                                    <th class="border border-slate-400 p-3 text-center w-24">TP</th>
+                                    <th class="border border-slate-400 p-3 text-left">Pernyataan Tahap Penguasaan</th>
+                                </tr>
+                            </thead>
+                            <tbody>${subjectRows}</tbody>
+                        </table>
+                        <div class="mb-12 border border-slate-400 rounded-lg p-4 bg-slate-50">
+                            <h4 class="font-bold text-slate-800 mb-2">Ulasan Guru Kelas:</h4>
+                            <p class="text-slate-700 italic">"${escapeHtml(ulasan)}"</p>
+                        </div>
+                        <div class="grid grid-cols-3 gap-8 text-center text-sm mt-16 pt-8">
+                            <div><div class="border-b-2 border-slate-800 mx-8 mb-2"></div><p class="font-semibold text-slate-800">Tandatangan Guru Kelas</p></div>
+                            <div><div class="border-b-2 border-slate-800 mx-8 mb-2"></div><p class="font-semibold text-slate-800">Tandatangan Pengetua / Guru Besar</p></div>
+                            <div><div class="border-b-2 border-slate-800 mx-8 mb-2"></div><p class="font-semibold text-slate-800">Tandatangan Ibu Bapa / Penjaga</p></div>
+                        </div>
+                    </div>`;
+                }).join('');
+                content += `<div class="print-content bg-slate-100 p-8 rounded-lg overflow-y-auto max-h-[800px]">${slipsHtml}</div>`;
+            }
+            return `${content}</div>`;
+        }
+
+        function getHTMLStatus() {
+            const statusData = [];
+            state.senaraiSubjek.forEach(sub => {
+                state.senaraiKelas.forEach(kel => {
+                    const hasRecord = state.savedData.some(d => d.subjek === sub && d.kelas === kel && d.pentaksiran === state.pentaksiran);
+                    if (hasRecord) statusData.push({ subjek: sub, kelas: kel });
+                });
+            });
+
+            let content = `
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                        <i data-lucide="check-circle" class="text-teal-600 w-6 h-6"></i> Status Pengisian TP
+                    </h2>
+                    <button onclick="printReport()" class="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-md hover:bg-slate-700 text-sm font-medium">
+                        <i data-lucide="printer" class="w-4 h-4"></i> Cetak
+                    </button>
+                </div>
+                <div class="mb-6 bg-slate-50 p-4 rounded-lg w-full md:w-1/2">
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Pilih Pentaksiran</label>
+                    <select onchange="setState('pentaksiran', this.value)" class="w-full p-2.5 border border-slate-300 rounded-lg">${getSelectOptions(state.senaraiPentaksiran, state.pentaksiran, 'Sila Pilih')}</select>
+                </div>`;
+
+            if (state.pentaksiran) {
+                const rows = statusData.length > 0 ? statusData.map((s, i) => `
+                    <tr class="border-b border-slate-100">
+                        <td class="px-4 py-3 text-center">${i + 1}</td>
+                        <td class="px-4 py-3 font-semibold text-slate-700">${escapeHtml(s.subjek)}</td>
+                        <td class="px-4 py-3">${escapeHtml(s.kelas)}</td>
+                        <td class="px-4 py-3 text-center">
+                            <span class="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-xs font-bold flex items-center justify-center gap-1 w-max mx-auto">
+                                <i data-lucide="check-circle" class="w-3 h-3"></i> Lengkap
+                            </span>
+                        </td>
+                    </tr>`).join('') : '<tr><td colspan="4" class="text-center py-6 text-slate-500">Tiada rekod pengisian dijumpai.</td></tr>';
+
+                content += `
+                <div class="print-content">
+                    <h3 class="text-lg font-bold mb-4 uppercase text-center">STATUS PENGISIAN PENTAKSIRAN - ${escapeHtml(state.pentaksiran)}</h3>
+                    <div class="overflow-x-auto border border-slate-200 rounded-lg">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-slate-800 text-white">
+                                <tr>
+                                    <th class="px-4 py-3 w-16 text-center">Bil</th><th class="px-4 py-3">Mata Pelajaran</th>
+                                    <th class="px-4 py-3">Kelas</th><th class="px-4 py-3 text-center">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>
+                </div>`;
+            }
+            return `${content}</div>`;
+        }
+    </script>
+</body>
+</html>
